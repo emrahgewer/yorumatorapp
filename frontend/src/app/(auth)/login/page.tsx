@@ -17,7 +17,7 @@ export default function LoginPage() {
     const result = await login({ email, password, otp });
     
     // YENI: Giriş başarılı olduğunda yönlendirme kontrolü
-    if (result && result.token) {
+   if (result && result.data && result.data.token) {
       // Backend başarılı bir JWT token döndürdüyse
       router.push('/'); // Kullanıcıyı ana ürünler sayfasına yönlendir
     } else {
