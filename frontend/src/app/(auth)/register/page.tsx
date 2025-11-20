@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { register } from "@/lib/api";
+import { useRouter } from 'next/navigation'; // YENI: useRouter hook'unu içeri aktar
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -10,10 +11,18 @@ export default function RegisterPage() {
   const [twoFactor, setTwoFactor] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const router = useRouter(); // YENI: useRouter'ı başlat
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const response = await register({ email, password, full_name: fullName, two_factor_enabled: twoFactor });
-    setMessage(response.message);
+    
+    // YENI: Kayıt başarılı olduğunda kullanıcıyı giriş sayfasına yönlendir
+    if (response && response.message === "Kayıt başarılı") { // Başarılı mesajını kontrol ediyoruz
+      router.push('/login'); // Kullanıcı giriş sayfasına yönlendirilir
+    } else {
+      setMessage(response.message || "Kayıt işlemi başarısız oldu.");
+    }
   };
 
   return (
