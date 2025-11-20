@@ -14,7 +14,7 @@ export default function HomePage() {
           <Link href="/products" className="rounded-full bg-emerald-600 px-6 py-3 text-white">
             Ürünleri keşfet
           </Link>
-          <Link href="/(auth)/register" className="rounded-full border border-slate-200 px-6 py-3">
+          <Link href="/register" className="rounded-full border border-slate-200 px-6 py-3">
             Hesap oluştur
           </Link>
         </div>
