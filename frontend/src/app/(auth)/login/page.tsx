@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { login } from "@/lib/api";
+import { useRouter } from 'next/navigation'; // YENI: useRouter hook'unu içeri aktar
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -9,10 +10,20 @@ export default function LoginPage() {
   const [otp, setOtp] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
+  const router = useRouter(); // YENI: useRouter'ı başlat
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const result = await login({ email, password, otp });
-    setMessage(result.message);
+    
+    // YENI: Giriş başarılı olduğunda yönlendirme kontrolü
+    if (result && result.token) {
+      // Backend başarılı bir JWT token döndürdüyse
+      router.push('/'); // Kullanıcıyı ana ürünler sayfasına yönlendir
+    } else {
+      // Başarısız olursa (şifre yanlış, 2FA kodu eksik vb.), mesajı göster
+      setMessage(result.message || "Giriş işlemi başarısız oldu.");
+    }
   };
 
   return (
