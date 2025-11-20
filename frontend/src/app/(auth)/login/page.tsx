@@ -14,28 +14,34 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setMessage(null); // Mesajı temizle
+
     try {
       const result = await login({ email, password, otp });
-      
-      // YENI: Giriş başarılı olduğunda yönlendirme kontrolü
-      const token = result?.token ?? result?.data?.token;
 
-      if (result && (result.token || (result.data && result.data.token))) {
-        // Backend başarılı bir JWT token döndürdüyse
+      // Token'ı hem doğrudan result'ta hem de data objesinde arıyoruz.
+      // TypeScript'i rahatlatmak için kontrolü basit tutuyoruz.
+      const jwtToken = result?.data?.token || result?.token;
+
+      if (jwtToken) {
+        // Token'ı yerel depolamaya kaydetme (hata toleranslı)
         try {
-          localStorage.setItem("auth_token", token);
+          localStorage.setItem("auth_token", jwtToken);
         } catch (storageError) {
-          console.warn("Token localStorage'a kaydedilirken hata oluştu:", storageError);
+          console.warn("Token localStorage'a kaydedilirken hata oluştu.", storageError);
         }
 
-        router.push('/'); // Token saklama hatası olsa da yönlendirmeye devam et
+        // Başarılı giriş sonrası yönlendirme
+        router.push('/'); 
+
       } else {
-        // Başarısız olursa (şifre yanlış, 2FA kodu eksik vb.), mesajı göster
-        setMessage(result.message || "Giriş işlemi başarısız oldu.");
+        // Token alınamadıysa (şifre yanlış, 2FA eksik vb.) hata mesajını göster
+        setMessage(result.message || "Giriş bilgileri yanlış veya eksik.");
       }
     } catch (error: unknown) {
+      // API bağlantı hatası veya beklenmedik bir hata
       const err = error as Error;
-      setMessage(err.message || "Giriş işlemi başarısız oldu.");
+      setMessage(err.message || "Giriş işlemi sırasında beklenmedik bir hata oluştu.");
     }
   };
 
