@@ -18,9 +18,9 @@ export default function LoginPage() {
       const result = await login({ email, password, otp });
       
       // YENI: Giriş başarılı olduğunda yönlendirme kontrolü
-      const token = result?.data?.token;
+      const token = result?.token ?? result?.data?.token;
 
-      if (token) {
+      if (result && (result.token || (result.data && result.data.token))) {
         // Backend başarılı bir JWT token döndürdüyse
         try {
           localStorage.setItem("auth_token", token);
