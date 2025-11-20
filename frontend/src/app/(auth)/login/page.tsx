@@ -14,15 +14,28 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const result = await login({ email, password, otp });
-    
-    // YENI: Giriş başarılı olduğunda yönlendirme kontrolü
-   if (result && result.data && result.data.token) {
-      // Backend başarılı bir JWT token döndürdüyse
-      router.push('/'); // Kullanıcıyı ana ürünler sayfasına yönlendir
-    } else {
-      // Başarısız olursa (şifre yanlış, 2FA kodu eksik vb.), mesajı göster
-      setMessage(result.message || "Giriş işlemi başarısız oldu.");
+    try {
+      const result = await login({ email, password, otp });
+      
+      // YENI: Giriş başarılı olduğunda yönlendirme kontrolü
+      const token = result?.data?.token;
+
+      if (token) {
+        // Backend başarılı bir JWT token döndürdüyse
+        try {
+          localStorage.setItem("auth_token", token);
+        } catch (storageError) {
+          console.warn("Token localStorage'a kaydedilirken hata oluştu:", storageError);
+        }
+
+        router.push('/'); // Token saklama hatası olsa da yönlendirmeye devam et
+      } else {
+        // Başarısız olursa (şifre yanlış, 2FA kodu eksik vb.), mesajı göster
+        setMessage(result.message || "Giriş işlemi başarısız oldu.");
+      }
+    } catch (error: unknown) {
+      const err = error as Error;
+      setMessage(err.message || "Giriş işlemi başarısız oldu.");
     }
   };
 
