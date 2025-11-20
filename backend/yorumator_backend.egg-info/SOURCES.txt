@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+app/__init__.py
+app/main.py
+yorumator_backend.egg-info/PKG-INFO
+yorumator_backend.egg-info/SOURCES.txt
+yorumator_backend.egg-info/dependency_links.txt
+yorumator_backend.egg-info/requires.txt
+yorumator_backend.egg-info/top_level.txt
