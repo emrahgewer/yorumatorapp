@@ -1,12 +1,11 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 
+export const dynamic = "force-dynamic";
 const sampleProducts = [
   {
     id: "1",
@@ -44,6 +43,21 @@ const sampleCategories = [
 ];
 
 export default function ProductsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto max-w-6xl px-6 py-12">
+          <div className="h-48 animate-pulse rounded-3xl bg-slate-100" />
+          <div className="mt-8 h-32 animate-pulse rounded-3xl bg-slate-100" />
+        </main>
+      }
+    >
+      <ProductsView />
+    </Suspense>
+  );
+}
+
+function ProductsView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const searchParams = useSearchParams();
