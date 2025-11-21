@@ -7,10 +7,10 @@ type ProductCardProps = {
   model: string;
   rating?: number;
   average_rating?: number;
-  reviewCount: number;
-  highlights: string[];
-  summary: string;
-  priceRange: string;
+  reviewCount?: number;
+  highlights?: string[];
+  summary?: string;
+  priceRange?: string;
   tags?: string[];
   pros?: string[];
   cons?: string[];
@@ -31,6 +31,7 @@ export default function ProductCard({
   cons = [],
 }: ProductCardProps) {
   const normalizedRating = typeof average_rating === "number" ? average_rating : rating ?? 0;
+  const reviewCountLabel = reviewCount ?? 0;
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
@@ -47,7 +48,7 @@ export default function ProductCard({
             <RatingStars rating={normalizedRating} />
           </div>
           <p className="mt-2 text-sm text-slate-500">
-            {normalizedRating.toFixed(1)} / 5 · {reviewCount} doğrulanmış yorum
+            {normalizedRating.toFixed(1)} / 5 · {reviewCountLabel} doğrulanmış yorum
           </p>
         </div>
       </div>
