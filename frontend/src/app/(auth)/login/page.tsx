@@ -14,32 +14,33 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setMessage(null); // Mesajı temizle
+    setMessage(null);
 
     try {
+      // 1. API isteği gönderilir
       const result = await login({ email, password, otp });
 
-      // Token'ı hem doğrudan result'ta hem de data objesinde arıyoruz.
-      // TypeScript'i rahatlatmak için kontrolü basit tutuyoruz.
-      const jwtToken = result?.data?.token || result?.token;
+      // 2. TOKEN ÇEKME: TypeScript'in hatasını yoksayarak token'ı alıyoruz
+      const responseData = result?.data || result;
 
-      if (jwtToken) {
-        // Token'ı yerel depolamaya kaydetme (hata toleranslı)
+      // 3. TOKEN KONTROLÜ: Token'ın var olup olmadığını kontrol et
+      if (responseData && (responseData.token || responseData.access_token)) {
+        const token = responseData.token || responseData.access_token;
+
+        // Token'ı yerel depolamaya kaydetme
         try {
-          localStorage.setItem("auth_token", jwtToken);
+          localStorage.setItem("auth_token", token as string);
         } catch (storageError) {
-          console.warn("Token localStorage'a kaydedilirken hata oluştu.", storageError);
+          console.warn("Token localStorage'a kaydedilirken hata oluştu.");
         }
 
-        // Başarılı giriş sonrası yönlendirme
-        router.push('/'); 
-
+        // Yönlendirme
+        router.push('/');
       } else {
-        // Token alınamadıysa (şifre yanlış, 2FA eksik vb.) hata mesajını göster
+        // Token gelmediyse veya başarısızsa hata mesajını göster
         setMessage(result.message || "Giriş bilgileri yanlış veya eksik.");
       }
     } catch (error: unknown) {
-      // API bağlantı hatası veya beklenmedik bir hata
       const err = error as Error;
       setMessage(err.message || "Giriş işlemi sırasında beklenmedik bir hata oluştu.");
     }
