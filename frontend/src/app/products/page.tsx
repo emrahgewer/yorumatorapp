@@ -1,12 +1,28 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
+import { collection, getDocs } from "firebase/firestore";
+import { firestore } from "@/lib/firebase";
 
 export const dynamic = "force-dynamic";
-const sampleProducts = [
+type Product = {
+  id: string;
+  brand: string;
+  model: string;
+  average_rating?: number;
+  reviewCount?: number;
+  highlights?: string[];
+  summary?: string;
+  priceRange?: string;
+  tags?: string[];
+  pros?: string[];
+  cons?: string[];
+};
+
+const mockProducts: Product[] = [
   {
     id: "1",
     brand: "Samsung",
@@ -60,19 +76,57 @@ export default function ProductsPage() {
 function ProductsView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const searchParams = useSearchParams();
   const router = useRouter();
   const activeView = searchParams.get("view") === "categories" ? "categories" : "products";
 
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setIsLoadingProducts(true);
+      try {
+        const snapshot = await getDocs(collection(firestore, "products"));
+        const docs = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            brand: data.brand ?? "Markasız",
+            model: data.model ?? "Model",
+            average_rating: typeof data.average_rating === "number" ? data.average_rating : undefined,
+            reviewCount: typeof data.reviewCount === "number" ? data.reviewCount : undefined,
+            highlights: Array.isArray(data.highlights) ? data.highlights : [],
+            summary: data.summary ?? "",
+            priceRange: data.priceRange ?? "",
+            tags: Array.isArray(data.tags) ? data.tags : [],
+            pros: Array.isArray(data.pros) ? data.pros : [],
+            cons: Array.isArray(data.cons) ? data.cons : [],
+          } as Product;
+        });
+
+        setProducts(docs);
+      } catch (error) {
+        console.error("Firestore ürünleri alınırken hata oluştu:", error);
+        setProducts([]);
+      } finally {
+        setIsLoadingProducts(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  const sourceProducts = products.length ? products : mockProducts;
+
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) {
-      return sampleProducts;
+      return sourceProducts;
     }
-    return sampleProducts.filter((product) => {
+    return sourceProducts.filter((product) => {
       const haystack = `${product.brand} ${product.model}`.toLowerCase();
       return haystack.includes(searchQuery.toLowerCase());
     });
-  }, [searchQuery]);
+  }, [searchQuery, sourceProducts]);
 
   const handleViewChange = (view: "products" | "categories") => {
     router.push(`/products${view === "categories" ? "?view=categories" : ""}`);
@@ -169,10 +223,12 @@ function ProductsView() {
         </section>
       ) : (
         <section className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} {...product} />
-          ))}
-          {!filteredProducts.length && (
+          {isLoadingProducts
+            ? Array.from({ length: 4 }).map((_, index) => (
+                <article key={index} className="h-48 animate-pulse rounded-2xl border border-slate-200 bg-slate-100" />
+              ))
+            : filteredProducts.map((product) => <ProductCard key={product.id} {...product} />)}
+          {!isLoadingProducts && !filteredProducts.length && (
             <div className="rounded-2xl border border-dashed border-slate-200 p-10 text-center text-slate-500">
               Aramanızla eşleşen ürün bulunamadı.
             </div>
