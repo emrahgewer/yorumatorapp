@@ -109,7 +109,7 @@ export default function HomePage() {
   }, [products, selectedCategory, searchQuery]);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background-light dark:bg-background-dark">
       <div className="flex flex-1 w-full">
         <div className="flex w-full max-w-7xl mx-auto flex-1 flex-col px-4 md:px-6">
           <header className="flex items-center justify-between whitespace-nowrap py-4 border-b border-slate-200 dark:border-slate-700">
