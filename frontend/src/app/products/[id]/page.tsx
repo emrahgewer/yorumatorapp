@@ -37,27 +37,29 @@ type Review = {
   rating: number;
   content: string;
   createdAt: string;
+  createdAtDate?: Date;
 };
 
-function StarRating({ rating }: { rating: number }) {
+function StarRating({ rating, size = "xl" }: { rating: number; size?: "xl" | "base" }) {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 >= 0.5;
   const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+  const sizeClass = size === "base" ? "!text-base !leading-none" : "!text-xl";
 
   return (
     <div className="flex items-center text-accent">
       {[...Array(fullStars)].map((_, i) => (
-        <span key={`full-${i}`} className="material-symbols-outlined !text-xl">
+        <span key={`full-${i}`} className={`material-symbols-outlined ${sizeClass}`}>
           star
         </span>
       ))}
       {hasHalfStar && (
-        <span className="material-symbols-outlined !text-xl">star_half</span>
+        <span className={`material-symbols-outlined ${sizeClass}`}>star_half</span>
       )}
       {[...Array(emptyStars)].map((_, i) => (
         <span
           key={`empty-${i}`}
-          className="material-symbols-outlined !text-xl text-slate-300 dark:text-slate-600"
+          className={`material-symbols-outlined ${sizeClass} text-slate-300 dark:text-slate-600`}
         >
           star
         </span>
@@ -81,6 +83,8 @@ export default function ProductDetailPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [sortBy, setSortBy] = useState("newest");
+  const [filterRating, setFilterRating] = useState("all");
 
   const fetchReviews = useCallback(async () => {
     if (!productId) return;
@@ -108,12 +112,8 @@ export default function ProductDetailPage() {
           rating: data.rating ?? 0,
           content: data.content ?? "",
           createdAt: createdAt.toLocaleDateString("tr-TR"),
+          createdAtDate: createdAt,
         };
-      });
-      items.sort((a, b) => {
-        const dateA = new Date(a.createdAt.split(".").reverse().join("-"));
-        const dateB = new Date(b.createdAt.split(".").reverse().join("-"));
-        return dateB.getTime() - dateA.getTime();
       });
       setReviews(items);
     } catch (error) {
@@ -186,6 +186,51 @@ export default function ProductDetailPage() {
     const sum = reviews.reduce((acc, review) => acc + (review.rating ?? 0), 0);
     return parseFloat((sum / reviews.length).toFixed(1));
   }, [reviews, product?.average_rating]);
+
+  const filteredAndSortedReviews = useMemo(() => {
+    let filtered = [...reviews];
+
+    // Rating filtresi
+    if (filterRating !== "all") {
+      const ratingNum = parseInt(filterRating);
+      filtered = filtered.filter((review) => Math.floor(review.rating) === ratingNum);
+    }
+
+    // Sıralama
+    if (sortBy === "newest") {
+      filtered.sort((a, b) => {
+        const dateA = a.createdAtDate?.getTime() ?? new Date(a.createdAt.split(".").reverse().join("-")).getTime();
+        const dateB = b.createdAtDate?.getTime() ?? new Date(b.createdAt.split(".").reverse().join("-")).getTime();
+        return dateB - dateA;
+      });
+    } else if (sortBy === "oldest") {
+      filtered.sort((a, b) => {
+        const dateA = a.createdAtDate?.getTime() ?? new Date(a.createdAt.split(".").reverse().join("-")).getTime();
+        const dateB = b.createdAtDate?.getTime() ?? new Date(b.createdAt.split(".").reverse().join("-")).getTime();
+        return dateA - dateB;
+      });
+    } else if (sortBy === "highest") {
+      filtered.sort((a, b) => b.rating - a.rating);
+    }
+
+    return filtered;
+  }, [reviews, sortBy, filterRating]);
+
+  const formatTimeAgo = (date: Date | string) => {
+    const now = new Date();
+    const reviewDate = typeof date === "string" 
+      ? new Date(date.split(".").reverse().join("-"))
+      : date;
+    const diffMs = now.getTime() - reviewDate.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Bugün";
+    if (diffDays === 1) return "1 gün önce";
+    if (diffDays < 7) return `${diffDays} gün önce`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} hafta önce`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} ay önce`;
+    return `${Math.floor(diffDays / 365)} yıl önce`;
+  };
 
   const handleSubmitReview = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -371,15 +416,35 @@ export default function ProductDetailPage() {
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <h2 className="text-lg font-bold">Kullanıcı Yorumları</h2>
-                  {reviews.length > 2 && (
-                    <Link
-                      href={`/products/${productId}#reviews`}
-                      className="text-sm font-medium text-primary"
-                    >
-                      Tümünü Gör
-                    </Link>
-                  )}
                 </div>
+
+                {!showReviewForm && (
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="rounded-lg border border-slate-300 bg-background-light text-sm focus:border-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-800"
+                      >
+                        <option value="newest">En Yeni</option>
+                        <option value="oldest">En Eski</option>
+                        <option value="highest">En Beğenilen</option>
+                      </select>
+                      <select
+                        value={filterRating}
+                        onChange={(e) => setFilterRating(e.target.value)}
+                        className="rounded-lg border border-slate-300 bg-background-light text-sm focus:border-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-800"
+                      >
+                        <option value="all">Tüm Puanlar</option>
+                        <option value="5">5 Yıldız</option>
+                        <option value="4">4 Yıldız</option>
+                        <option value="3">3 Yıldız</option>
+                        <option value="2">2 Yıldız</option>
+                        <option value="1">1 Yıldız</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
 
                 {showReviewForm ? (
                   <form
@@ -428,34 +493,56 @@ export default function ProductDetailPage() {
                     </div>
                   </form>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {loadingReviews ? (
                       <div className="space-y-3">
                         {Array.from({ length: 2 }).map((_, index) => (
-                          <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-700" />
+                          <div key={index} className="h-32 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-700" />
                         ))}
                       </div>
-                    ) : reviews.length > 0 ? (
-                      reviews.slice(0, 2).map((review) => (
-                        <div
-                          key={review.id}
-                          className="flex flex-col gap-2 border-t border-slate-200 dark:border-slate-700 pt-4 first:border-t-0 first:pt-0"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="size-8 rounded-full bg-slate-300 dark:bg-slate-700 flex items-center justify-center">
+                    ) : filteredAndSortedReviews.length > 0 ? (
+                      filteredAndSortedReviews.map((review) => (
+                        <div key={review.id} className="flex flex-col gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="size-10 rounded-full bg-slate-300 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
                               <span className="material-symbols-outlined text-slate-600 dark:text-slate-300 text-base">
                                 account_circle
                               </span>
                             </div>
-                            <p className="text-sm font-bold">{review.author}</p>
+                            <div className="flex flex-col w-full">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="text-sm font-bold">{review.author}</p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    {formatTimeAgo(review.createdAtDate ?? review.createdAt)}
+                                  </p>
+                                </div>
+                                <StarRating rating={review.rating} size="base" />
+                              </div>
+                            </div>
                           </div>
-                          <StarRating rating={review.rating} />
-                          <p className="text-sm text-slate-700 dark:text-slate-300">{review.content}</p>
+                          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                            {review.content}
+                          </p>
+                          <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
+                            <button className="flex items-center gap-1.5 text-xs font-medium transition-colors hover:text-primary dark:hover:text-white">
+                              <span className="material-symbols-outlined !text-lg !font-light">thumb_up</span>
+                              <span>0</span>
+                            </button>
+                            <button className="flex items-center gap-1.5 text-xs font-medium transition-colors hover:text-primary dark:hover:text-white">
+                              <span className="material-symbols-outlined !text-lg !font-light">thumb_down</span>
+                              <span>0</span>
+                            </button>
+                            <button className="flex items-center gap-1.5 ml-auto text-xs font-medium transition-colors hover:text-primary dark:hover:text-white">
+                              <span className="material-symbols-outlined !text-lg !font-light">reply</span>
+                              Yanıtla
+                            </button>
+                          </div>
                         </div>
                       ))
                     ) : (
                       <p className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-6 text-center text-sm text-slate-500">
-                        Bu ürün için henüz yorum yapılmamış.
+                        Bu filtreye uygun yorum bulunamadı.
                       </p>
                     )}
                   </div>
