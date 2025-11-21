@@ -35,7 +35,7 @@ export default function LoginPage() {
         }
 
         // Yönlendirme
-        router.push('/');
+        router.push('/products');
       } else {
         // Token gelmediyse veya başarısızsa hata mesajını göster
         setMessage(result.message || "Giriş bilgileri yanlış veya eksik.");
