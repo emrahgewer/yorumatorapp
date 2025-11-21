@@ -111,13 +111,13 @@ export default function ProductCard({
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
-          href={{ pathname: "/products/[id]", query: { id } }}
+          href={`/products/${id}`}
           className="inline-flex flex-1 items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
         >
           Detayları gör
         </Link>
         <Link
-          href={{ pathname: "/products/[id]", query: { id, section: "reviews" } }}
+          href={`/products/${id}#reviews`}
           className="inline-flex items-center justify-center rounded-full border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
         >
           Yorumları incele
