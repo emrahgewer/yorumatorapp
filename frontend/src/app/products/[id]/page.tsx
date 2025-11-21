@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import RatingStars from "@/components/RatingStars";
 import {
   addDoc,
   collection,
@@ -11,7 +10,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  orderBy,
   query,
   serverTimestamp,
   where,
@@ -29,6 +27,8 @@ type Product = {
   priceRange?: string;
   specs?: Record<string, string>;
   average_rating?: number;
+  imageUrl?: string;
+  images?: string[];
 };
 
 type Review = {
@@ -38,6 +38,33 @@ type Review = {
   content: string;
   createdAt: string;
 };
+
+function StarRating({ rating }: { rating: number }) {
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+  return (
+    <div className="flex items-center text-accent">
+      {[...Array(fullStars)].map((_, i) => (
+        <span key={`full-${i}`} className="material-symbols-outlined !text-xl">
+          star
+        </span>
+      ))}
+      {hasHalfStar && (
+        <span className="material-symbols-outlined !text-xl">star_half</span>
+      )}
+      {[...Array(emptyStars)].map((_, i) => (
+        <span
+          key={`empty-${i}`}
+          className="material-symbols-outlined !text-xl text-slate-300 dark:text-slate-600"
+        >
+          star
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function ProductDetailPage() {
   const router = useRouter();
@@ -53,17 +80,15 @@ export default function ProductDetailPage() {
   const [formState, setFormState] = useState({ rating: 4, content: "" });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
   const fetchReviews = useCallback(async () => {
     if (!productId) return;
-    
+
     setLoadingReviews(true);
     try {
       const reviewsRef = collection(firestore, "reviews");
-      const reviewsQuery = query(
-        reviewsRef,
-        where("productId", "==", productId)
-      );
+      const reviewsQuery = query(reviewsRef, where("productId", "==", productId));
       const snapshot = await getDocs(reviewsQuery);
       const items: Review[] = snapshot.docs.map((doc) => {
         const data = doc.data();
@@ -85,7 +110,6 @@ export default function ProductDetailPage() {
           createdAt: createdAt.toLocaleDateString("tr-TR"),
         };
       });
-      // Client-side'da tarihe göre sırala (en yeni önce)
       items.sort((a, b) => {
         const dateA = new Date(a.createdAt.split(".").reverse().join("-"));
         const dateB = new Date(b.createdAt.split(".").reverse().join("-"));
@@ -122,6 +146,8 @@ export default function ProductDetailPage() {
             priceRange: data.priceRange,
             specs: data.specs ?? {},
             average_rating: data.average_rating,
+            imageUrl: data.imageUrl,
+            images: data.images ?? [],
           });
         } else {
           setProduct(null);
@@ -167,6 +193,7 @@ export default function ProductDetailPage() {
 
     if (!user) {
       setFormError("Yorum yapmak için giriş yapmalısınız.");
+      router.push(`/login?redirect=/products/${productId}`);
       return;
     }
     if (!formState.content.trim()) {
@@ -186,8 +213,7 @@ export default function ProductDetailPage() {
       });
 
       setFormState({ rating: 4, content: "" });
-
-      // Firestore'dan yorumları yeniden çek
+      setShowReviewForm(false);
       await fetchReviews();
     } catch (error) {
       console.error("Yorum eklenirken hata:", error);
@@ -199,7 +225,9 @@ export default function ProductDetailPage() {
 
   const handleToggleFavorite = async () => {
     if (!user || !productId) {
-      setFormError("Favori eklemek için giriş yapmalısınız.");
+      if (!user) {
+        router.push(`/login?redirect=/products/${productId}`);
+      }
       return;
     }
 
@@ -224,148 +252,237 @@ export default function ProductDetailPage() {
 
   if (loadingProduct) {
     return (
-      <main className="mx-auto max-w-5xl px-6 py-12">
-        <div className="h-48 animate-pulse rounded-3xl bg-slate-200" />
-        <div className="mt-6 h-24 animate-pulse rounded-2xl bg-slate-200" />
-      </main>
+      <div className="relative flex min-h-screen w-full flex-col">
+        <div className="h-96 animate-pulse bg-slate-200" />
+      </div>
     );
   }
 
   if (!product) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-12 text-center">
+      <div className="relative flex min-h-screen w-full flex-col items-center justify-center p-6">
         <p className="text-lg text-slate-600">Bu ürün bulunamadı veya kaldırıldı.</p>
-        <Link href="/products" className="mt-4 inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm">
+        <Link href="/products" className="mt-4 rounded-full border border-slate-200 px-4 py-2 text-sm">
           Ürün listesine dön
         </Link>
-      </main>
+      </div>
     );
   }
 
+  const productImages = product.images && product.images.length > 0 
+    ? product.images 
+    : product.imageUrl 
+    ? [product.imageUrl] 
+    : [];
+
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <section className="rounded-3xl bg-white p-8 shadow-sm">
-        <p className="text-sm uppercase tracking-[0.3em] text-emerald-500">{product.brand}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-4">
-          <h1 className="text-4xl font-semibold text-slate-900">{product.model}</h1>
-          <RatingStars rating={averageRating} />
-          <span className="text-sm text-slate-500">{reviews.length} yorum</span>
-        </div>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleToggleFavorite}
-            className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${
-              isFavorite
-                ? "bg-rose-100 text-rose-600"
-                : "border border-rose-200 text-rose-500 hover:bg-rose-50"
-            }`}
-          >
-            {isFavorite ? "Favorilerden çıkar" : "Favorilere ekle"}
-          </button>
-        </div>
-        {product.summary && <p className="mt-4 text-slate-600">{product.summary}</p>}
-        {product.priceRange && (
-          <div className="mt-6 inline-flex rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
-            {product.priceRange}
-          </div>
-        )}
-        {product.highlights && product.highlights.length > 0 && (
-          <ul className="mt-5 flex flex-wrap gap-2 text-sm text-slate-600">
-            {product.highlights.map((highlight) => (
-              <li key={highlight} className="rounded-full bg-slate-100 px-3 py-1">
-                {highlight}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mt-8 grid gap-6 lg:grid-cols-2">
-        <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-2xl font-semibold text-slate-900">Teknik Özellikler</h2>
-          {product.specs && Object.keys(product.specs).length ? (
-            <dl className="mt-4 grid gap-3 text-sm text-slate-600">
-              {Object.entries(product.specs).map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <dt className="font-medium text-slate-500">{key}</dt>
-                  <dd className="text-slate-900">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <p className="mt-4 text-sm text-slate-500">Bu ürün için teknik bilgiler yakında eklenecek.</p>
-          )}
-        </article>
-
-        <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Yorumlar</h2>
-              <p className="text-sm text-slate-500">Deneyimini paylaşarak topluluğa katkı sağla</p>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600">
-              {reviews.length} yorum
-            </span>
-          </div>
-
-          <form onSubmit={handleSubmitReview} className="mt-6 space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-            <label className="text-sm font-medium text-slate-700">
-              Puan
-              <input
-                type="number"
-                min={1}
-                max={5}
-                step={0.5}
-                value={formState.rating}
-                onChange={(event) => setFormState((prev) => ({ ...prev, rating: Number(event.target.value) }))}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </label>
-            <textarea
-              placeholder="Deneyimini birkaç cümleyle paylaş"
-              value={formState.content}
-              onChange={(event) => setFormState((prev) => ({ ...prev, content: event.target.value }))}
-              className="h-24 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              required
-            />
-            {formError && <p className="text-sm text-rose-500">{formError}</p>}
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+      <div className="flex flex-1 justify-center">
+        <div className="flex w-full max-w-md flex-1 flex-col">
+          <header className="absolute top-0 left-0 z-10 flex w-full items-center justify-between p-4">
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
+              onClick={() => router.back()}
+              className="flex size-10 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm dark:bg-slate-800/80"
             >
-              Yorum gönder
+              <span className="material-symbols-outlined text-text-light dark:text-text-dark">
+                arrow_back
+              </span>
             </button>
-          </form>
+            <button
+              onClick={handleToggleFavorite}
+              className="flex size-10 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm dark:bg-slate-800/80"
+            >
+              <span className="material-symbols-outlined text-text-light dark:text-text-dark">
+                {isFavorite ? "favorite" : "favorite_border"}
+              </span>
+            </button>
+          </header>
 
-          <div className="mt-6 space-y-4">
-            {loadingReviews ? (
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
-                ))}
-              </div>
-            ) : reviews.length ? (
-              reviews.map((review) => (
-                <div key={review.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-slate-900">{review.author}</p>
-                    <span className="text-xs text-slate-500">{review.createdAt}</span>
+          <main className="flex flex-1 flex-col">
+            <div className="relative w-full">
+              <div
+                className="flex overflow-x-auto snap-x scrollbar-hide"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {productImages.length > 0 ? (
+                  productImages.map((image, index) => (
+                    <div key={index} className="w-full flex-shrink-0 snap-center">
+                      <div
+                        className="aspect-square w-full bg-cover bg-center bg-no-repeat"
+                        style={{ backgroundImage: `url("${image}")` }}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="w-full flex-shrink-0 snap-center">
+                    <div className="flex aspect-square w-full items-center justify-center bg-slate-100 dark:bg-slate-800">
+                      <span className="material-symbols-outlined text-6xl text-slate-400">
+                        image
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-1 text-sm text-emerald-600">{review.rating.toFixed(1)} / 5</div>
-                  <p className="mt-2 text-sm text-slate-600">{review.content}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-6 p-4">
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-bold text-primary">{product.brand}</p>
+                <h1 className="text-3xl font-bold tracking-tight">{product.model}</h1>
+                <div className="flex items-center gap-2">
+                  <StarRating rating={averageRating} />
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {averageRating.toFixed(1)} ({reviews.length} yorum)
+                  </p>
                 </div>
-              ))
-            ) : (
-              <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                Bu ürün için henüz yorum yapılmamış. İlk yorumu sen ekle!
-              </p>
-            )}
-          </div>
-        </article>
-      </section>
-    </main>
+              </div>
+
+              {product.summary && (
+                <div className="flex flex-col gap-4">
+                  <div className="border-b border-slate-200 dark:border-slate-700">
+                    <h2 className="inline-block border-b-2 border-primary pb-2 text-lg font-bold">
+                      Açıklama
+                    </h2>
+                  </div>
+                  <p className="leading-relaxed text-slate-700 dark:text-slate-300">
+                    {product.summary}
+                  </p>
+                </div>
+              )}
+
+              {product.specs && Object.keys(product.specs).length > 0 && (
+                <div className="flex flex-col gap-4">
+                  <div className="border-b border-slate-200 dark:border-slate-700">
+                    <h2 className="pb-2 text-lg font-bold">Teknik Özellikler</h2>
+                  </div>
+                  <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                    {Object.entries(product.specs).map(([key, value]) => (
+                      <li key={key} className="flex justify-between">
+                        <span className="font-medium text-text-light dark:text-text-dark">
+                          {key}:
+                        </span>
+                        <span>{value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <h2 className="text-lg font-bold">Kullanıcı Yorumları</h2>
+                  {reviews.length > 2 && (
+                    <Link
+                      href={`/products/${productId}#reviews`}
+                      className="text-sm font-medium text-primary"
+                    >
+                      Tümünü Gör
+                    </Link>
+                  )}
+                </div>
+
+                {showReviewForm ? (
+                  <form
+                    onSubmit={handleSubmitReview}
+                    className="flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4"
+                  >
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Puan
+                      <input
+                        type="number"
+                        min={1}
+                        max={5}
+                        step={0.5}
+                        value={formState.rating}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, rating: Number(event.target.value) }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                    </label>
+                    <textarea
+                      placeholder="Deneyimini birkaç cümleyle paylaş"
+                      value={formState.content}
+                      onChange={(event) =>
+                        setFormState((prev) => ({ ...prev, content: event.target.value }))
+                      }
+                      className="h-24 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      required
+                    />
+                    {formError && <p className="text-sm text-rose-500">{formError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-1 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-white transition hover:bg-accent/90 disabled:opacity-60"
+                      >
+                        Gönder
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowReviewForm(false)}
+                        className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-medium"
+                      >
+                        İptal
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="space-y-4">
+                    {loadingReviews ? (
+                      <div className="space-y-3">
+                        {Array.from({ length: 2 }).map((_, index) => (
+                          <div key={index} className="h-24 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-700" />
+                        ))}
+                      </div>
+                    ) : reviews.length > 0 ? (
+                      reviews.slice(0, 2).map((review) => (
+                        <div
+                          key={review.id}
+                          className="flex flex-col gap-2 border-t border-slate-200 dark:border-slate-700 pt-4 first:border-t-0 first:pt-0"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="size-8 rounded-full bg-slate-300 dark:bg-slate-700 flex items-center justify-center">
+                              <span className="material-symbols-outlined text-slate-600 dark:text-slate-300 text-base">
+                                account_circle
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold">{review.author}</p>
+                          </div>
+                          <StarRating rating={review.rating} />
+                          <p className="text-sm text-slate-700 dark:text-slate-300">{review.content}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-6 text-center text-sm text-slate-500">
+                        Bu ürün için henüz yorum yapılmamış.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </main>
+
+          {!showReviewForm && (
+            <footer className="sticky bottom-0 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+              <button
+                onClick={() => {
+                  if (!user) {
+                    router.push(`/login?redirect=/products/${productId}`);
+                  } else {
+                    setShowReviewForm(true);
+                  }
+                }}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent font-bold text-white"
+              >
+                <span className="material-symbols-outlined">edit</span>
+                Yorum Yap
+              </button>
+            </footer>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
-
