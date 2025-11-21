@@ -110,9 +110,14 @@ export default function HomePage() {
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
-      <div className="flex flex-1 justify-center">
-        <div className="flex w-full max-w-md flex-1 flex-col">
-          <header className="flex items-center justify-between whitespace-nowrap p-4">
+      <style jsx global>{`
+        header {
+          display: none !important;
+        }
+      `}</style>
+      <div className="flex flex-1 w-full">
+        <div className="flex w-full max-w-7xl mx-auto flex-1 flex-col px-4 md:px-6">
+          <header className="flex items-center justify-between whitespace-nowrap py-4 border-b border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-2">
               <div className="text-primary text-2xl">
                 <span className="material-symbols-outlined !text-4xl">memory</span>
@@ -140,7 +145,7 @@ export default function HomePage() {
             </div>
           </header>
 
-          <main className="flex flex-col gap-4 p-4">
+          <main className="flex flex-col gap-4 py-6">
             <div className="flex flex-col gap-2">
               <h2 className="text-4xl font-black leading-tight tracking-[-0.033em]">
                 Ürünleri Keşfet
@@ -194,7 +199,7 @@ export default function HomePage() {
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {[...Array(6)].map((_, i) => (
                   <div
                     key={i}
@@ -203,7 +208,7 @@ export default function HomePage() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {filteredProducts.length > 0 ? (
                   filteredProducts.map((product) => (
                     <Link
