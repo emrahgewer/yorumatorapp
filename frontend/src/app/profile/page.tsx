@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 type Comment = {
   id: string;
@@ -53,22 +54,16 @@ const mockFavorites: FavoriteProduct[] = [
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [isReady, setIsReady] = useState(false);
+  const { user, loading: authLoading } = useAuth();
   const [comments, setComments] = useState<Comment[]>(mockComments);
   const [favorites, setFavorites] = useState<FavoriteProduct[]>(mockFavorites);
   const [newComment, setNewComment] = useState({ productName: "", content: "", rating: 4 });
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
+    if (!authLoading && !user) {
       router.replace("/login?redirect=/profile");
-    } else {
-      setIsReady(true);
     }
-  }, [router]);
+  }, [authLoading, user, router]);
 
   const stats = useMemo(
     () => [
@@ -101,7 +96,7 @@ export default function ProfilePage() {
     setFavorites((prev) => prev.filter((favorite) => favorite.id !== id));
   };
 
-  if (!isReady) {
+  if (authLoading || (!user && typeof window !== "undefined")) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-12">
         <div className="h-48 animate-pulse rounded-3xl bg-slate-100" />
@@ -117,8 +112,8 @@ export default function ProfilePage() {
     <main className="mx-auto max-w-6xl px-6 py-12">
       <section className="rounded-3xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-10 py-12 text-white shadow-xl">
         <p className="text-sm uppercase tracking-[0.3em] text-emerald-200">Hesap Merkezi</p>
-        <h1 className="mt-4 text-4xl font-semibold">{mockUser.name}</h1>
-        <p className="mt-2 text-emerald-100">{mockUser.email}</p>
+        <h1 className="mt-4 text-4xl font-semibold">{user?.displayName || mockUser.name}</h1>
+        <p className="mt-2 text-emerald-100">{user?.email || mockUser.email}</p>
         <div className="mt-6 flex flex-wrap gap-4 text-sm text-emerald-100">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-emerald-200">Üyelik</p>

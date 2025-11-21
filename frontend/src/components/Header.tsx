@@ -1,50 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-const AUTH_EVENT = "auth-change";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Header() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
+  const { user, logout, loading } = useAuth();
+  const isAuthenticated = Boolean(user);
 
-  useEffect(() => {
-    const syncAuthState = () => {
-      try {
-        const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-        setIsAuthenticated(Boolean(token));
-      } catch {
-        setIsAuthenticated(false);
-      }
-    };
-
-    syncAuthState();
-
-    const handleStorage = () => syncAuthState();
-    if (typeof window !== "undefined") {
-      window.addEventListener("storage", handleStorage);
-      window.addEventListener(AUTH_EVENT, handleStorage as EventListener);
-    }
-
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("storage", handleStorage);
-        window.removeEventListener(AUTH_EVENT, handleStorage as EventListener);
-      }
-    };
-  }, []);
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
-      localStorage.removeItem("auth_token");
-    } catch {
-      // ignore
+      await logout();
+      router.push("/login");
+    } catch (error) {
+      console.error("Çıkış sırasında bir hata oluştu:", error);
     }
-    window.dispatchEvent(new Event(AUTH_EVENT));
-    setIsAuthenticated(false);
-    router.push("/login");
   };
 
   return (
@@ -64,7 +35,7 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          {isAuthenticated ? (
+          {loading ? null : isAuthenticated ? (
             <>
               <Link
                 href="/profile"
@@ -101,4 +72,3 @@ export default function Header() {
     </header>
   );
 }
-

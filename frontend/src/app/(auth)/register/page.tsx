@@ -1,27 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { register } from "@/lib/api";
-import { useRouter } from 'next/navigation'; // YENI: useRouter hook'unu içeri aktar
+import { useRouter } from "next/navigation";
+import { updateProfile } from "firebase/auth";
+import { useAuth } from "@/context/AuthContext";
+import { auth } from "@/lib/firebase";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [twoFactor, setTwoFactor] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const router = useRouter(); // YENI: useRouter'ı başlat
+  const router = useRouter();
+  const { register } = useAuth();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const response = await register({ email, password, full_name: fullName, two_factor_enabled: twoFactor });
-    
-    // YENI: Kayıt başarılı olduğunda kullanıcıyı giriş sayfasına yönlendir
-    if (response && response.message === "Kayıt başarılı") { // Başarılı mesajını kontrol ediyoruz
-      router.push('/login'); // Kullanıcı giriş sayfasına yönlendirilir
-    } else {
-      setMessage(response.message || "Kayıt işlemi başarısız oldu.");
+    setMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      const user = await register(email, password);
+      if (user && fullName.trim()) {
+        await updateProfile(auth.currentUser!, { displayName: fullName });
+      }
+      router.push("/profile");
+    } catch (error: unknown) {
+      const err = error as Error;
+      setMessage(err.message || "Kayıt işlemi başarısız oldu.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -52,11 +62,11 @@ export default function RegisterPage() {
           className="w-full rounded-lg border px-4 py-3"
           required
         />
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={twoFactor} onChange={(e) => setTwoFactor(e.target.checked)} />
-          İki faktörlü doğrulamayı etkinleştir
-        </label>
-        <button className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-white" type="submit">
+        <button
+          className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-white disabled:opacity-60"
+          type="submit"
+          disabled={isSubmitting}
+        >
           Kaydol
         </button>
         {message && <p className="text-sm text-slate-600">{message}</p>}
