@@ -1,13 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, logout, loading } = useAuth();
   const isAuthenticated = Boolean(user);
+
+  // Anasayfada header'ı gizle
+  if (pathname === "/") {
+    return null;
+  }
 
   const handleLogout = async () => {
     try {

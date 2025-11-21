@@ -110,11 +110,6 @@ export default function HomePage() {
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
-      <style jsx global>{`
-        header {
-          display: none !important;
-        }
-      `}</style>
       <div className="flex flex-1 w-full">
         <div className="flex w-full max-w-7xl mx-auto flex-1 flex-col px-4 md:px-6">
           <header className="flex items-center justify-between whitespace-nowrap py-4 border-b border-slate-200 dark:border-slate-700">
@@ -169,14 +164,9 @@ export default function HomePage() {
             </div>
 
             <div
-              className="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4"
+              className="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
-              <style jsx>{`
-                .overflow-x-auto::-webkit-scrollbar {
-                  display: none;
-                }
-              `}</style>
               {categories.map((category) => (
                 <button
                   key={category.id}
