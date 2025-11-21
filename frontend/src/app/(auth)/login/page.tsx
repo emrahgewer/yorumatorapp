@@ -30,6 +30,7 @@ export default function LoginPage() {
         // Token'ı yerel depolamaya kaydetme
         try {
           localStorage.setItem("auth_token", token as string);
+          window.dispatchEvent(new Event("auth-change"));
         } catch (storageError) {
           console.warn("Token localStorage'a kaydedilirken hata oluştu.");
         }

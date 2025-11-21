@@ -1,6 +1,52 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+const AUTH_EVENT = "auth-change";
 
 export default function Header() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const syncAuthState = () => {
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+        setIsAuthenticated(Boolean(token));
+      } catch {
+        setIsAuthenticated(false);
+      }
+    };
+
+    syncAuthState();
+
+    const handleStorage = () => syncAuthState();
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", handleStorage);
+      window.addEventListener(AUTH_EVENT, handleStorage as EventListener);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", handleStorage);
+        window.removeEventListener(AUTH_EVENT, handleStorage as EventListener);
+      }
+    };
+  }, []);
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem("auth_token");
+    } catch {
+      // ignore
+    }
+    window.dispatchEvent(new Event(AUTH_EVENT));
+    setIsAuthenticated(false);
+    router.push("/login");
+  };
+
   return (
     <header className="bg-white shadow-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
@@ -18,18 +64,38 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-emerald-500 hover:text-emerald-600"
-          >
-            Giriş Yap
-          </Link>
-          <Link
-            href="/register"
-            className="hidden rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 md:inline-flex"
-          >
-            Hesabım
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <Link
+                href="/profile"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-emerald-500 hover:text-emerald-600"
+              >
+                Hesabım
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
+              >
+                Çıkış Yap
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-emerald-500 hover:text-emerald-600"
+              >
+                Giriş Yap
+              </Link>
+              <Link
+                href="/register"
+                className="hidden rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 md:inline-flex"
+              >
+                Hesap Oluştur
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
