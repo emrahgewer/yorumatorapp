@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import RatingStars from "@/components/RatingStars";
@@ -54,6 +54,52 @@ export default function ProductDetailPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const fetchReviews = useCallback(async () => {
+    if (!productId) return;
+    
+    setLoadingReviews(true);
+    try {
+      const reviewsRef = collection(firestore, "reviews");
+      const reviewsQuery = query(
+        reviewsRef,
+        where("productId", "==", productId)
+      );
+      const snapshot = await getDocs(reviewsQuery);
+      const items: Review[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        let createdAt: Date;
+        if (data.createdAt?.toDate && typeof data.createdAt.toDate === "function") {
+          createdAt = data.createdAt.toDate();
+        } else if (data.createdAt?.seconds) {
+          createdAt = new Date(data.createdAt.seconds * 1000);
+        } else if (data.createdAt instanceof Date) {
+          createdAt = data.createdAt;
+        } else {
+          createdAt = new Date();
+        }
+        return {
+          id: doc.id,
+          author: data.author ?? "Anonim kullanıcı",
+          rating: data.rating ?? 0,
+          content: data.content ?? "",
+          createdAt: createdAt.toLocaleDateString("tr-TR"),
+        };
+      });
+      // Client-side'da tarihe göre sırala (en yeni önce)
+      items.sort((a, b) => {
+        const dateA = new Date(a.createdAt.split(".").reverse().join("-"));
+        const dateB = new Date(b.createdAt.split(".").reverse().join("-"));
+        return dateB.getTime() - dateA.getTime();
+      });
+      setReviews(items);
+    } catch (error) {
+      console.error("Yorumlar alınırken hata:", error);
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  }, [productId]);
+
   useEffect(() => {
     if (!productId) {
       router.replace("/products");
@@ -88,38 +134,6 @@ export default function ProductDetailPage() {
       }
     };
 
-    const fetchReviews = async () => {
-      setLoadingReviews(true);
-      try {
-        const reviewsRef = collection(firestore, "reviews");
-        const reviewsQuery = query(
-          reviewsRef,
-          where("productId", "==", productId),
-          orderBy("createdAt", "desc")
-        );
-        const snapshot = await getDocs(reviewsQuery);
-        const items: Review[] = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          const createdAt = data.createdAt?.toDate
-            ? data.createdAt.toDate()
-            : data.createdAt ?? new Date();
-          return {
-            id: doc.id,
-            author: data.author ?? "Anonim kullanıcı",
-            rating: data.rating ?? 0,
-            content: data.content ?? "",
-            createdAt: new Date(createdAt).toLocaleDateString("tr-TR"),
-          };
-        });
-        setReviews(items);
-      } catch (error) {
-        console.error("Yorumlar alınırken hata:", error);
-        setReviews([]);
-      } finally {
-        setLoadingReviews(false);
-      }
-    };
-
     const checkFavorite = async () => {
       if (!user || !productId) {
         setIsFavorite(false);
@@ -137,7 +151,7 @@ export default function ProductDetailPage() {
     fetchProduct();
     fetchReviews();
     checkFavorite();
-  }, [productId, router, user]);
+  }, [productId, router, user, fetchReviews]);
 
   const averageRating = useMemo(() => {
     if (!reviews.length) {
@@ -164,6 +178,7 @@ export default function ProductDetailPage() {
     try {
       await addDoc(collection(firestore, "reviews"), {
         productId,
+        userId: user.uid,
         author: user.displayName || user.email || "Anonim kullanıcı",
         rating: formState.rating,
         content: formState.content.trim(),
@@ -172,16 +187,8 @@ export default function ProductDetailPage() {
 
       setFormState({ rating: 4, content: "" });
 
-      setReviews((prev) => [
-        {
-          id: `temp-${Date.now()}`,
-          author: user.displayName || user.email || "Anonim kullanıcı",
-          rating: formState.rating,
-          content: formState.content.trim(),
-          createdAt: new Date().toLocaleDateString("tr-TR"),
-        },
-        ...prev,
-      ]);
+      // Firestore'dan yorumları yeniden çek
+      await fetchReviews();
     } catch (error) {
       console.error("Yorum eklenirken hata:", error);
       setFormError("Yorum kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.");
