@@ -4,7 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import RatingStars from "@/components/RatingStars";
-import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, where } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+  setDoc,
+} from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 
@@ -37,6 +49,7 @@ export default function ProductDetailPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [formState, setFormState] = useState({ rating: 4, content: "" });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,9 +120,24 @@ export default function ProductDetailPage() {
       }
     };
 
+    const checkFavorite = async () => {
+      if (!user || !productId) {
+        setIsFavorite(false);
+        return;
+      }
+      try {
+        const favoriteDoc = await getDoc(doc(firestore, "favorites", `${user.uid}_${productId}`));
+        setIsFavorite(favoriteDoc.exists());
+      } catch (error) {
+        console.error("Favori kontrolü sırasında hata:", error);
+        setIsFavorite(false);
+      }
+    };
+
     fetchProduct();
     fetchReviews();
-  }, [productId, router]);
+    checkFavorite();
+  }, [productId, router, user]);
 
   const averageRating = useMemo(() => {
     if (!reviews.length) {
@@ -162,6 +190,31 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleToggleFavorite = async () => {
+    if (!user || !productId) {
+      setFormError("Favori eklemek için giriş yapmalısınız.");
+      return;
+    }
+
+    const favoriteRef = doc(firestore, "favorites", `${user.uid}_${productId}`);
+    try {
+      if (isFavorite) {
+        await deleteDoc(favoriteRef);
+        setIsFavorite(false);
+      } else {
+        await setDoc(favoriteRef, {
+          userId: user.uid,
+          productId,
+          createdAt: serverTimestamp(),
+        });
+        setIsFavorite(true);
+      }
+    } catch (error) {
+      console.error("Favori güncellenirken hata:", error);
+      setFormError("Favori işlemi sırasında bir hata oluştu.");
+    }
+  };
+
   if (loadingProduct) {
     return (
       <main className="mx-auto max-w-5xl px-6 py-12">
@@ -190,6 +243,19 @@ export default function ProductDetailPage() {
           <h1 className="text-4xl font-semibold text-slate-900">{product.model}</h1>
           <RatingStars rating={averageRating} />
           <span className="text-sm text-slate-500">{reviews.length} yorum</span>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleToggleFavorite}
+            className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${
+              isFavorite
+                ? "bg-rose-100 text-rose-600"
+                : "border border-rose-200 text-rose-500 hover:bg-rose-50"
+            }`}
+          >
+            {isFavorite ? "Favorilerden çıkar" : "Favorilere ekle"}
+          </button>
         </div>
         {product.summary && <p className="mt-4 text-slate-600">{product.summary}</p>}
         {product.priceRange && (
