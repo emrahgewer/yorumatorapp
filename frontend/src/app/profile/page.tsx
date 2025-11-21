@@ -247,7 +247,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex flex-col gap-2">
                   <Link
-                    href={`/products/${favorite.id}`}
+                    href={{ pathname: "/products/[id]", query: { id: favorite.id } }}
                     className="rounded-full border border-emerald-600 px-4 py-1 text-sm font-semibold text-emerald-700"
                   >
                     İncele
